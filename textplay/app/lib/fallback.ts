@@ -83,11 +83,13 @@ export function naiveChunksFromRange(
 
 /**
  * Merge LLM-produced chunks with heuristic chunks to guarantee exhaustive coverage.
+ * - During streaming: only use LLM chunks if available, with minimal fallback
+ * - After streaming: ensures complete coverage by filling gaps
  * - Walks the full text from start to finish.
  * - For each LLM chunk, finds its next occurrence at/after the current pointer.
- *   - If there's a gap before that occurrence, fill with naive chunks.
+ *   - If there's a gap before that occurrence, fill with naive chunks (only if streaming complete).
  *   - Then include the LLM chunk (normalizing its complexity).
- * - After the last LLM chunk, fill the tail with naive chunks.
+ * - After the last LLM chunk, optionally fill the tail with naive chunks when streaming complete.
  */
 export function mergeExhaustive(
   fullText: string,
@@ -98,6 +100,12 @@ export function mergeExhaustive(
   const total = text.length;
   const out: SimpleChunk[] = [];
   let ptr = 0;
+
+  // If no LLM chunks at all (early streaming), just return empty array
+  // This prevents immediate high chunk count during streaming
+  if (!llmChunks || llmChunks.length === 0) {
+    return out;
+  }
 
   const normComplexity = (c: number | string | null | undefined): number => {
     if (typeof c === 'number' && isFinite(c)) return clamp01(c);
@@ -119,10 +127,14 @@ export function mergeExhaustive(
       continue;
     }
 
-    // Fill gap before this chunk, if any
-    if (idx > ptr) {
+    // Fill gap before this chunk ONLY if we have reasonable coverage (>50% of text processed)
+    // This prevents massive initial chunk counts during streaming
+    const coverageRatio = ptr / Math.max(1, total);
+    if (idx > ptr && coverageRatio > 0.5) {
       const gap = naiveChunksFromRange(text, ptr, idx, wordsPerChunk);
-      out.push(...gap);
+      if (gap.length <= 20) { // Only fill small gaps to avoid explosion
+        out.push(...gap);
+      }
     }
 
     // Include LLM chunk
@@ -132,10 +144,14 @@ export function mergeExhaustive(
     ptr = idx + t.length;
   }
 
-  // Fill remaining tail
-  if (ptr < total) {
+  // Only fill remaining tail if we have reasonable coverage (>80% of text processed)
+  // This prevents massive chunk counts during streaming
+  const finalCoverageRatio = ptr / Math.max(1, total);
+  if (ptr < total && finalCoverageRatio > 0.8) {
     const tail = naiveChunksFromRange(text, ptr, total, wordsPerChunk);
-    out.push(...tail);
+    if (tail.length <= 30) { // Limit the tail to avoid explosion
+      out.push(...tail);
+    }
   }
 
   return out;

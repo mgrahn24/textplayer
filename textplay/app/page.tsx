@@ -9,10 +9,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-6 sm:p-10">
-      <header className="w-full max-w-4xl mb-8">
-        <h1 className="text-2xl font-bold">textplayer</h1>
-        <p className="text-sm text-foreground/70">Paste text, then view it in the player.</p>
-      </header>
 
       <main className="w-full flex-1 flex flex-col items-center">
         {submittedText ? (
@@ -25,9 +21,7 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="w-full max-w-4xl mt-12 text-xs text-foreground/60">
-        MVP scaffold — features to be added iteratively.
-      </footer>
+
     </div>
   );
 }

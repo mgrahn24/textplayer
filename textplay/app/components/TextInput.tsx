@@ -25,9 +25,6 @@ export default function TextInput({ initialText = '', onSubmit }: TextInputProps
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-3xl space-y-4">
       <div>
-        <label htmlFor="text" className="block text-sm font-medium">
-          Paste text
-        </label>
         <textarea
           id="text"
           value={text}
